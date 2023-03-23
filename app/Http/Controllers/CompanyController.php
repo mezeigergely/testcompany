@@ -3,9 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CreateRequest;
+use App\Http\Services\CompanyService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use App\Models\Company;
 
 class CompanyController extends Controller
 {
@@ -14,28 +13,12 @@ class CompanyController extends Controller
     */
     public function createCompany(CreateRequest $request)
     {
-        $companies = Company::all();
+        $companyService = new CompanyService();
+        $allCompanies = $companyService->getAllCompanies();
         $validated = $request->validated();
         if($validated)
         {
-            Company::insert([
-                'companyId' => count($companies)+1,
-                'companyName' => $request->companyName,
-                'companyRegistrationNumber' => $request->companyRegistrationNumber,
-                'companyFoundationDate' => $request->companyFoundationDate,
-                'country' => $request->country,
-                'zipCode' => $request->zipCode,
-                'city' => $request->city,
-                'streetAddress' => $request->streetAddress,
-                'latitude' => $request->latitude,
-                'longitude' => $request->longitude,
-                'companyOwner' => $request->companyOwner,
-                'employees' => $request->employees,
-                'activity' => $request->activity,
-                'active' => $request->active,
-                'email' => $request->email,
-                'password' => $request->password,
-            ]);
+            $companyService->createCompany($allCompanies, $request);
             return response()->json([
                 'status' => 'Sikeres cégfelvétel!'
             ]);
@@ -47,20 +30,20 @@ class CompanyController extends Controller
     */
     public function getCompanyDetailsByID(Request $request)
     {
-        $data = $request->all();
-        $allCompanies = Company::all();
+        $companyService = new CompanyService();
+        $allCompanies = $companyService->getAllCompanies();
         $companyIDs = array();
+        $data = $request->all();
         foreach ($data as $key => $value)
         {
             if(gettype($value) == 'integer' && $value <= count($allCompanies)){
                 $companyIDs[] = $value;
             }
         }
-        $companies = Company::whereIn('companyId', $companyIDs)->get();
+        $companies = $companyService->getCompanyDetailsByID($companyIDs);
         return response()->json([
             'message' => $companies
         ]);
-
     }
 
     /*
@@ -69,12 +52,13 @@ class CompanyController extends Controller
     public function updateCompany(CreateRequest $request)
     {
         $validated = $request->validated();
+        $companyService = new CompanyService();
         if($validated)
         {
             $data = $request->all();
             foreach ($data as $key => $value)
             {
-                DB::update('update '.Company::DB.' set '.$key.' = "'.$value.'" where companyId = ?', [$request->companyId]);
+                $companyService->updateCompany($key, $value, $request->companyId);
             }
             return response()->json([
                 'status' => 'Sikeres update!'
@@ -89,17 +73,8 @@ class CompanyController extends Controller
     */
     public function getCompaniesSince2001TillNow()
     {
-        $query = DB::select(DB::raw('select selected_date as date, testcompanydb.companyName from
-        (select adddate("2001-01-01",t4*10000 + t3*1000 + t2*100 + t1*10 + t0)
-        selected_date from
-        (select 0 t0 union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t0,
-        (select 0 t1 union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t1,
-        (select 0 t2 union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t2,
-        (select 0 t3 union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t3,
-        (select 0 t4 union select 1 union select 2 union select 3 union select 4 union select 5 union select 6 union select 7 union select 8 union select 9) t4) v
-        left join testcompanydb on CAST(`companyFoundationDate` AS DATETIME) = v.selected_date
-        where selected_date between "2001-01-01" and CURDATE()
-        ORDER BY selected_date'));
+        $companyService = new CompanyService();
+        $query = $companyService->getCompaniesSince2001TillNow();
         return response()->json([
             'status' => 'Sikeres lekérdezés',
             'message' => $query,
@@ -108,9 +83,8 @@ class CompanyController extends Controller
 
     public function setDB()
     {
-        DB::statement('ALTER TABLE '.Company::DB.' ADD CONSTRAINT UC_'.Company::DB.' UNIQUE (companyId, companyName, companyRegistrationNumber, email);');
-        DB::statement('ALTER TABLE '.Company::DB.' MODIFY COLUMN companyRegistrationNumber VARCHAR(255)');
-        DB::statement('ALTER TABLE '.Company::DB.' MODIFY COLUMN companyFoundationDate VARCHAR(255)');
+        $companyService = new CompanyService();
+        $companyService->setDB();
         return response()->json([
             'status' => 'Db settings OK!'
         ]);
